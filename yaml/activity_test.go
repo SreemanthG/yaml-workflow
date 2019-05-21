@@ -1,6 +1,7 @@
 package yaml_test
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -233,6 +234,108 @@ func TestParse_unresolvedAttr(t *testing.T) {
 			}
 			yaml.CreateStep(ctx, workflowFile, content)
 		})
+	})
+}
+
+func TestParse_valueParamRef(t *testing.T) {
+	pcore.Do(func(ctx px.Context) {
+		ctx.SetLoader(px.NewFileBasedLoader(ctx.Loader(), "testdata", ``, px.PuppetDataTypePath))
+		workflowFile := "testdata/helm.yaml"
+		content, err := ioutil.ReadFile(workflowFile)
+		if err != nil {
+			panic(err.Error())
+		}
+		a := yaml.CreateStep(ctx, workflowFile, content)
+
+		sb := service.NewServiceBuilder(ctx, `Yaml::Test`)
+		sb.RegisterStateConverter(yaml.ResolveState)
+		sb.RegisterStep(a)
+		sv := sb.Server()
+		_, defs := sv.Metadata(ctx)
+
+		buf := bytes.NewBufferString(``)
+		wf := defs[0]
+		wf.ToString(buf, px.Pretty, nil)
+		require.Equal(t,
+			`Service::Definition(
+  'identifier' => TypedName(
+    'namespace' => 'definition',
+    'name' => 'helm'
+  ),
+  'serviceId' => TypedName(
+    'namespace' => 'service',
+    'name' => 'Yaml::Test'
+  ),
+  'properties' => {
+    'parameters' => [
+      Lyra::Parameter(
+        'name' => 'testing',
+        'type' => String,
+        'value' => 'this-is-a-test'
+      )],
+    'returns' => [
+      Lyra::Parameter(
+        'name' => 'helm_output',
+        'type' => Any
+      )],
+    'steps' => [
+      Service::Definition(
+        'identifier' => TypedName(
+          'namespace' => 'definition',
+          'name' => 'helm::helm'
+        ),
+        'serviceId' => TypedName(
+          'namespace' => 'service',
+          'name' => 'Yaml::Test'
+        ),
+        'properties' => {
+          'parameters' => [
+            Lyra::Parameter(
+              'name' => 'name',
+              'type' => String,
+              'value' => 'wordpress'
+            ),
+            Lyra::Parameter(
+              'name' => 'chart',
+              'type' => String,
+              'value' => 'stable/wordpress'
+            ),
+            Lyra::Parameter(
+              'name' => 'namespace',
+              'type' => Any,
+              'value' => undef
+            ),
+            Lyra::Parameter(
+              'name' => 'testing',
+              'type' => Any
+            ),
+            Lyra::Parameter(
+              'name' => 'overrides',
+              'type' => Hash[Enum['wordpressUsername', 'wordpressPassword', 'externalDatabase.Host'], RichData, 3, 3],
+              'value' => {
+                'wordpressUsername' => 'somebody',
+                'wordpressPassword' => 'Anything',
+                'externalDatabase.Host' => Deferred(
+                  'name' => '$testing',
+                  'arguments' => []
+                )
+              }
+            )],
+          'returns' => [
+            Lyra::Parameter(
+              'name' => 'helm_output',
+              'alias' => 'output',
+              'type' => Any
+            )],
+          'call' => 'helm_go',
+          'style' => 'call',
+          'origin' => '(file: testdata/helm.yaml)'
+        }
+      )],
+    'style' => 'workflow',
+    'origin' => '(file: testdata/helm.yaml)'
+  }
+)`, buf.String())
 	})
 }
 

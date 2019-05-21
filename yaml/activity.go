@@ -288,10 +288,10 @@ func (a *step) extractParameters(c px.Context, field string, aliased bool) []ser
 	}
 	v := vl.Value
 
+	params := make([]serviceapi.Parameter, 0)
 	if ph, ok := v.(px.OrderedMap); ok {
-		params := make([]serviceapi.Parameter, 0, ph.Len())
 		ph.EachPair(func(k, v px.Value) {
-			params = append(params, a.makeParameter(c, field, k.(*yaml.Value), v.(*yaml.Value), aliased))
+			params = a.makeParameter(c, field, k.(*yaml.Value), v.(*yaml.Value), aliased, params)
 		})
 		return params
 	}
@@ -325,7 +325,9 @@ func (a *step) extractParameters(c px.Context, field string, aliased bool) []ser
 
 var varNamePattern = regexp.MustCompile(`\A[a-z]\w*(?:\.[a-z]\w*)*\z`)
 
-func (a *step) makeParameter(c px.Context, field string, kl, vl *yaml.Value, aliased bool) (param serviceapi.Parameter) {
+func (a *step) makeParameter(c px.Context, field string, kl, vl *yaml.Value, aliased bool, params []serviceapi.Parameter) (parameters []serviceapi.Parameter) {
+	var param serviceapi.Parameter
+	parameters = params
 	k := kl.Value
 	if n, ok := k.(px.StringValue); ok {
 		name := n.String()
@@ -390,7 +392,8 @@ func (a *step) makeParameter(c px.Context, field string, kl, vl *yaml.Value, ali
 				val = types.NewDeferred(`lookup`, args...)
 			} else {
 				if vl, ok = getProperty(vl, `value`); ok {
-					val = vl.Unwrap()
+					// Value may include parameter references. Resolve them
+					val, parameters = a.resolveParameters(vl, tp, parameters)
 					if tp != nil {
 						defer a.amendError(vl)
 						val = types.CoerceTo(c, fmt.Sprintf(`%s:%s parameter value`, a.Label(), name), tp, val)
@@ -416,6 +419,7 @@ func (a *step) makeParameter(c px.Context, field string, kl, vl *yaml.Value, ali
 	if param == nil {
 		panic(a.Error(vl, wf.BadParameter, issue.H{`step`: a, `name`: k, `parameterType`: field}))
 	}
+	parameters = append(parameters, param)
 	return
 }
 
