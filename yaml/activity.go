@@ -521,20 +521,32 @@ func (a *step) resolveParameters(vl *yaml.Value, at px.Type, parameters []servic
 			if varNamePattern.MatchString(vn) {
 				// Add to parameters unless it's there already
 				found := false
+				sg := strings.Split(vn, `.`)
+				pn := sg[0]
 				for i, ip := range parameters {
-					if ip.Name() == vn {
+					if ip.Name() == pn {
 						if ip.Type() == types.DefaultAnyType() {
 							// Replace untyped with typed
-							parameters[i] = serviceapi.NewParameter(vn, ``, at, nil)
+							parameters[i] = serviceapi.NewParameter(pn, ``, at, nil)
 						}
 						found = true
 						break
 					}
 				}
 				if !found {
-					parameters = append(parameters, serviceapi.NewParameter(vn, ``, at, nil))
+					parameters = append(parameters, serviceapi.NewParameter(pn, ``, at, nil))
 				}
-				v = types.NewDeferred(s)
+				if len(sg) == 1 {
+					v = types.NewDeferred(s)
+				} else {
+					// Turn dotted notation into deferred navigation
+					sg = sg[1:]
+					args := make([]px.Value, len(sg))
+					for i, seg := range sg {
+						args[i] = types.WrapString(seg)
+					}
+					v = types.NewDeferred(`$`+pn, args...)
+				}
 			}
 		}
 	case px.OrderedMap:
