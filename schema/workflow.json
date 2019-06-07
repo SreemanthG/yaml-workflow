@@ -1,0 +1,274 @@
+{
+  "title": "JSON schema for Lyra Workflow manifest files",
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "definitions": {
+    "pcoreType":             {
+      "description": "Pcore Type",
+      "type": "string",
+      "pattern": "^[A-Z][\\w]*(?:::[A-Z][\\w]*)*(?:\\[.*\\])?"
+    },
+    "parameters": {
+      "description": "Hash of named input parameters",
+      "type": "object",
+      "patternProperties": {
+        "^[a-z_]\\w*$": {
+          "description": "Name of input parameter",
+          "oneOf": [
+            { "$ref": "#/definitions/pcoreType" },
+            {
+              "description": "Parameter definition",
+              "type": "object",
+              "oneOf": [
+                {
+                  "properties": {
+                    "type": { "$ref": "#/definitions/pcoreType" },
+                    "lookup": {
+                      "description": "Hiera lookup key",
+                      "type": "string"
+                    }
+                  }
+                },
+                {
+                  "properties": {
+                    "type": { "$ref": "#/definitions/pcoreType" },
+                    "value": {
+                      "description": "Literal value or parameter reference"
+                    }
+                  }
+                }
+              ],
+              "minProperties": 1,
+              "additionalProperties": false
+            }
+          ]
+        }
+      }
+    },
+    "returns": {
+      "oneOf": [
+        {
+          "description": "Hash, mapping output names to internal variables",
+          "type": "object",
+          "patternProperties": {
+            "^[a-z_]\\w*$": {
+              "description": "<output parameter name>: <internal variable name>",
+              "type": "string",
+              "pattern": "^[a-z_]\\w*$"
+            }
+          }
+        },
+        {
+          "description": "Hash, of typed output names",
+          "type": "object",
+          "patternProperties": {
+            "^[a-z_]\\w*$": { "$ref": "#/definitions/pcoreType" }
+        }
+        },
+        {
+          "description": "Hash, of typed output definitions",
+          "type": "object",
+          "patternProperties": {
+            "^[a-z_]\\w*$": {
+              "description": "<output parameter name>: <type>",
+              "type": "object",
+              "properties": {
+                "type": { "$ref": "#/definitions/pcoreType" },
+                "value": {
+                  "description": "literal value or parameter reference"
+                }
+              }
+            }
+          }
+        },
+        {
+          "description": "Array of state attribute names",
+          "type": "array",
+          "items": {
+            "description": "name of state attribute",
+            "type": "string",
+            "pattern": "^[a-z_]\\w*$"
+          }
+        },
+        {
+          "description": "The name of a state attribute",
+          "type": "string",
+          "pattern": "^[a-z_]\\w*$"
+        }
+      ]
+    },
+    "variable": {
+      "description": "Variable reference",
+      "type": "string",
+      "pattern": "^$[a-z_]\\w*(?:\\.[a-z_]\\w*)*"
+    },
+    "step": {
+      "description": "Workflow step",
+      "oneOf": [
+        {
+          "description": "Resource",
+          "type": "object",
+          "properties": {
+            "returns": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/returns"
+                }
+              ]
+            }
+          },
+          "patternProperties": {
+            "^[A-Z][\\w]*(?:::[A-Z][\\w]*)*$": {
+              "description": "Name of Resource Type",
+              "type": "object",
+              "additionalProperties": false,
+              "patternProperties": {
+                "^[a-z_]\\w*$": {
+                  "description": "state attribute"
+                }
+              }
+            }
+          },
+          "minProperties": 1,
+          "additionalProperties": false
+        },
+        {
+          "description": "Workflow",
+          "type": "object",
+          "properties": {
+            "parameters": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/parameters"
+                }
+              ]
+            },
+            "returns": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/returns"
+                }
+              ]
+            },
+            "steps": {
+              "description": "List of workflow steps",
+              "type": "object",
+              "patternProperties": {
+                "^[a-z_]\\w*$": {
+                  "description": "Step name",
+                  "allOf": [
+                    {
+                      "$ref": "#/definitions/step"
+                    }
+                  ]
+                }
+              },
+              "minItems": 1,
+              "additionalItems": false
+            }
+          },
+          "required": [
+            "steps"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Call",
+          "type": "object",
+          "properties": {
+            "parameters": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/parameters"
+                }
+              ]
+            },
+            "returns": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/returns"
+                }
+              ]
+            },
+            "call": {
+              "description": "Name of the step to call",
+              "type": "string"
+            }
+          },
+          "required": [
+            "call"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Each Collector",
+          "type": "object",
+          "properties": {
+            "each": {},
+            "as": {
+              "description": "collector variable or array of collector variables",
+              "oneOf": [
+                {
+                  "description": "collector variable",
+                  "type": "string"
+                },
+                {
+                  "description": "collector variables",
+                  "type": "array",
+                  "items": {
+                    "description": "collector variable",
+                    "type": "string"
+                  }
+                }
+              ]
+            },
+            "step": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/step"
+                }
+              ]
+            }
+          },
+          "required": [
+            "each"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "Times Collector",
+          "type": "object",
+          "properties": {
+            "times": {
+              "oneOf": [
+                {
+                  "$ref": "#/definitions/variable"
+                },
+                {
+                  "description": "The number of times to apply the step",
+                  "type": "integer",
+                  "minimum": 1
+                }
+              ]
+            },
+            "as": {
+              "description": "collector variable",
+              "type": "string"
+            },
+            "step": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/step"
+                }
+              ]
+            }
+          },
+          "required": [
+            "times"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "$ref": "#/definitions/step"
+}
