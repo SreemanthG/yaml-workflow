@@ -1,5 +1,6 @@
 steps:
   first:
-    No::Such::Type:
+    resource: No::Such::Type
+    value:
       one: two
       three: four

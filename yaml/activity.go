@@ -117,8 +117,7 @@ func (a *step) stepKind() int {
 		if m.IncludesKey2(`call`) {
 			return kindCall
 		}
-		// hash must include exactly one key which is a type name
-		if m.Keys().Select(func(key px.Value) bool { return types.TypeNamePattern.MatchString(key.String()) }).Len() == 1 {
+		if m.IncludesKey2(`resource`) {
 			return kindResource
 		}
 	}
@@ -165,7 +164,7 @@ func (a *step) buildResource(builder wf.ResourceBuilder) {
 	builder.Returns(a.extractParameters(builder.Context(), `returns`, true)...)
 	builder.State(&state{ctx: c, stateType: a.getResourceType(c), unresolvedState: st})
 
-	if extId, ok := a.getStringProperty(a.hash, `external_id`); ok {
+	if _, extId, ok := a.getStringProperty(a.hash, `external_id`); ok {
 		builder.ExternalId(extId)
 	}
 }
@@ -183,7 +182,7 @@ func (a *step) buildCall(builder wf.CallBuilder) {
 
 	// Step will call a step with the same name by default.
 	call := a.Name()
-	if ra, ok := a.getStringProperty(a.hash, `call`); ok && ra != `` {
+	if _, ra, ok := a.getStringProperty(a.hash, `call`); ok && ra != `` {
 		call = ra
 	}
 	builder.CallTo(call)
@@ -279,7 +278,7 @@ func (a *step) buildIterator(builder wf.IteratorBuilder) {
 }
 
 func (a *step) getWhen() string {
-	if when, ok := a.getStringProperty(a.hash, `when`); ok {
+	if _, when, ok := a.getStringProperty(a.hash, `when`); ok {
 		return when
 	}
 	return ``
@@ -346,16 +345,12 @@ func (a *step) makeParameter(c px.Context, field string, kl, vl *yaml.Value, ali
 			param = v
 		case px.StringValue:
 			s := v.String()
-			if types.TypeNamePattern.MatchString(s) {
-				param = serviceapi.NewParameter(name, ``, c.ParseType(v.String()), nil)
-			} else {
-				if aliased && len(s) > 0 && varNamePattern.MatchString(s) {
-					if a.stepKind() == kindResource {
-						// Alias declaration
-						param = serviceapi.NewParameter(name, s, a.attributeType(c, s, vl), nil)
-					} else if a.stepKind() == kindCall {
-						param = serviceapi.NewParameter(name, s, types.DefaultAnyType(), nil)
-					}
+			if aliased && len(s) > 0 && varNamePattern.MatchString(s) {
+				if a.stepKind() == kindResource {
+					// Alias declaration
+					param = serviceapi.NewParameter(name, s, a.attributeType(c, s, vl), nil)
+				} else if a.stepKind() == kindCall {
+					param = serviceapi.NewParameter(name, s, types.DefaultAnyType(), nil)
 				}
 			}
 		case px.OrderedMap:
@@ -467,19 +462,18 @@ func (a *step) attributeType(c px.Context, name string, k *yaml.Value) px.Type {
 }
 
 func (a *step) getTypeName() *yaml.Value {
-	keys := a.hash.Value.(px.OrderedMap).Keys().Select(func(key px.Value) bool {
-		return types.TypeNamePattern.MatchString(key.(*yaml.Value).Value.String())
-	})
-	if keys.Len() == 1 {
-		return keys.At(0).(*yaml.Value)
+	if tv, s, ok := a.getStringProperty(a.hash, `resource`); ok {
+		if types.TypeNamePattern.MatchString(s) {
+			return tv
+		}
+		panic(a.Error(tv, wf.FieldTypeMismatch, issue.H{`step`: a, `field`: `resource`, `expected`: `Type name`, `actual`: s}))
 	}
-	// This should never happen since the step is identified by the presence of a unique type key.
-	panic(fmt.Errorf(`step has no type name key`))
+	// This should never happen since the step is identified by the presence of a resource key.
+	panic(fmt.Errorf(`step has no resource key`))
 }
 
 func (a *step) getState(c px.Context, parameters []serviceapi.Parameter) (px.OrderedMap, []serviceapi.Parameter) {
-	tn := a.getTypeName()
-	de, ok := getProperty(a.hash, tn.Value.String())
+	de, ok := getProperty(a.hash, `value`)
 	if !ok {
 		return px.EmptyMap, []serviceapi.Parameter{}
 	}
@@ -647,15 +641,15 @@ func (a *step) getResourceType(c px.Context) px.ObjectType {
 	panic(a.Error(nl, px.UnresolvedType, issue.H{`typeString`: n}))
 }
 
-func (a *step) getStringProperty(properties *yaml.Value, field string) (string, bool) {
+func (a *step) getStringProperty(properties *yaml.Value, field string) (*yaml.Value, string, bool) {
 	vl, ok := getProperty(properties, field)
 	if !ok {
-		return ``, false
+		return nil, ``, false
 	}
 	v := vl.Unwrap()
 
 	if s, ok := v.(px.StringValue); ok {
-		return s.String(), true
+		return vl, s.String(), true
 	}
 	panic(a.Error(vl, wf.FieldTypeMismatch, issue.H{`step`: a, `field`: field, `expected`: `String`, `actual`: v.PType()}))
 }
