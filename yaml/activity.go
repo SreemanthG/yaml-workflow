@@ -198,7 +198,11 @@ func (a *step) buildWorkflow(builder wf.WorkflowBuilder) {
 
 	block, ok := de.Value.(px.OrderedMap)
 	if !ok {
-		panic(a.Error(de, wf.FieldTypeMismatch, issue.H{`step`: a, `field`: `definition`, `expected`: `CodeBlock`, `actual`: de.Value}))
+		// allow undef
+		if de.Value.Equals(px.Undef, nil) {
+			return
+		}
+		panic(a.Error(de, wf.FieldTypeMismatch, issue.H{`step`: a, `field`: `definition`, `expected`: `Hash`, `actual`: de.Value}))
 	}
 
 	// Block should only contain step expressions or something is wrong.
