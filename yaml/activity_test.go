@@ -181,7 +181,7 @@ func ExampleCreateStep() {
 }
 
 func TestParse_unresolvedType(t *testing.T) {
-	requireError(t, `Reference to unresolved type 'No::Such::Type' (file: testdata/typefail.yaml, line: 3, column: 5)`, func() {
+	requireError(t, `Reference to unresolved type 'No::Such::Type' (file: testdata/typefail.yaml, line: 3, column: 15)`, func() {
 		pcore.Do(func(ctx px.Context) {
 			ctx.SetLoader(px.NewFileBasedLoader(ctx.Loader(), "./testdata", ``, px.PuppetDataTypePath))
 			workflowFile := "testdata/typefail.yaml"

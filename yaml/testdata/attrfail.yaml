@@ -1,7 +1,8 @@
 steps:
   namespace:
     returns: no_such_attribute
-    Kubernetes::Namespace:
+    resource: Kubernetes::Namespace
+    value:
       namespace_id: "ignore"
       metadata:
         name: "terraform-lyra"

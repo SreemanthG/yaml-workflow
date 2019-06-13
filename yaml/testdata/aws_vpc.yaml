@@ -3,12 +3,15 @@ parameters:
     type: Hash[String,String]
     lookup: aws.tags
 returns:
-  vpcId: String
-  subnetId: String
+  vpcId:
+    type: String
+  subnetId:
+    type: String
 steps:
   vpc:
     returns: vpcId
-    Aws::Vpc:
+    resource: Aws::Vpc
+    value:
       amazonProvidedIpv6CidrBlock: false
       cidrBlock: 192.168.0.0/16
       enableDnsHostnames: false
@@ -18,7 +21,8 @@ steps:
       tags: $tags
   subnet:
     returns: subnetId
-    Aws::Subnet:
+    resource: Aws::Subnet
+    value:
       vpcId: $vpcId
       cidrBlock: 192.168.1.0/24
       ipv6CidrBlock: ''
