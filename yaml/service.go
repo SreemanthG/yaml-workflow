@@ -67,7 +67,7 @@ func (m *manifestLoader) LoadManifest(moduleDir string, fileName string) service
 		panic(px.Error(px.UnableToReadFile, issue.H{`path`: fileName, `detail`: err.Error()}))
 	}
 
-	c := m.ctx.Fork()
+	c := m.ctx
 	mf := munged(fileName)
 	sb := service.NewServiceBuilder(c, mf)
 
