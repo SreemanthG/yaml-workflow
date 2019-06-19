@@ -9,7 +9,6 @@ import (
 	"github.com/lyraproj/issue/issue"
 	"github.com/lyraproj/pcore/pcore"
 	"github.com/lyraproj/pcore/px"
-	"github.com/lyraproj/pcore/pximpl"
 	"github.com/lyraproj/servicesdk/grpc"
 	"github.com/lyraproj/servicesdk/service"
 	"github.com/lyraproj/servicesdk/serviceapi"
@@ -40,8 +39,7 @@ func (m *manifestService) State(name string, parameters px.OrderedMap) px.Puppet
 }
 
 func WithService(serviceName string, sf func(c px.Context, s serviceapi.Service)) {
-	rt := pximpl.InitializeRuntime()
-	rt.SetLogger(grpc.NewHclogLogger(hclog.Default()))
+	pcore.SetLogger(grpc.NewHclogLogger(hclog.Default()))
 
 	pcore.Do(func(c px.Context) {
 		c.DoWithLoader(service.FederatedLoader(c.Loader()), func() {
