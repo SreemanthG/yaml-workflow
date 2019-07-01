@@ -180,6 +180,20 @@ func ExampleCreateStep() {
 	// )
 }
 
+func TestParse_oldSyntax(t *testing.T) {
+	requireError(t, `a step must contain one of the keys 'action', 'call', 'resource', or 'steps' (file: testdata/oldsyntax.yaml, line: 3, column: 5)`, func() {
+		pcore.Do(func(ctx px.Context) {
+			ctx.SetLoader(px.NewFileBasedLoader(ctx.Loader(), "./testdata", ``, px.PuppetDataTypePath))
+			workflowFile := "testdata/oldsyntax.yaml"
+			content, err := ioutil.ReadFile(workflowFile)
+			if err != nil {
+				panic(err.Error())
+			}
+			yaml.CreateStep(ctx, workflowFile, content)
+		})
+	})
+}
+
 func TestParse_unresolvedType(t *testing.T) {
 	requireError(t, `Reference to unresolved type 'No::Such::Type' (file: testdata/typefail.yaml, line: 3, column: 15)`, func() {
 		pcore.Do(func(ctx px.Context) {
