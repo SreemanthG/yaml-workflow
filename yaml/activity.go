@@ -120,8 +120,9 @@ func (a *step) stepKind() int {
 		if m.IncludesKey2(`resource`) {
 			return kindResource
 		}
+		panic(a.Error(a.hash, NotYamlStep, issue.NoArgs))
 	}
-	panic(a.Error(a.hash, wf.NotStep, issue.NoArgs))
+	panic(a.Error(a.hash, wf.NotStep, issue.H{`actual`: a.hash.Value}))
 }
 
 func (a *step) Step() wf.Step {
